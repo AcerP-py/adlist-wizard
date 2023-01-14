@@ -4,29 +4,39 @@ Wizard for working with adlists (made with pi-hole in mind).
 ## Features
 - combine host-list files
 - remove duplicates
+- combine files from the web
 
-## Current Version V1.0.0
-Version v1.0.0 is here!
+## Current Version V1.1.0
+
 
 ### New Features
-- combine space separated list of host-list files
-- remove duplicates
+- rewrite of codebase
+- combine files from the web
 
-### Options
-Example:
+### Usage
 ```commandline
-alwiz --rd --out /home/user/myadlist.list list1 list2 ...
+usage: alwiz [-h] [-v] [-o OUT] [-m {files,lists}] [-rd] [source ...]
+
+positional arguments:
+  source                list of input files/lists
+
+options:
+  -h, --help            show this help message and exit
+  -v, --version         show program's version number and exit
+  -o OUT, --out OUT     output file
+  -m {files,lists}, --mode {files,lists}
+                        source mode
+  -rd, --remove_duplicates
+                        remove duplicates
+
+
 ```
-- --out
-  - the file to write to \[default: adlist.list]
-- --rd
-  - removes duplicates
 
 
 ## Building
 Binary built with pyinstaller
 ```commandline
-pyinstaller ./src/alwiz.py --name alwiz --onefile
+pyinstaller --name alwiz --onefile
 ```
 
 
