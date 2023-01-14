@@ -1,95 +1,117 @@
-# Asa Rentschler 2023
+"""Asa Rentschler 2023"""
 
 # imports
 import sys
 from datetime import datetime
 import time
 import re
+import argparse
 
 # version
-VERSION = '1.0.0'
+VERSION = 'v1.1.0'
 
-# system args
-OUTPUT = sys.argv[sys.argv.index('--out') + 1] if '--out' in sys.argv else 'ad_list.al'
-FILTER = True if '--rd' in sys.argv else False
+"""System Arguments"""
+arg_parser = argparse.ArgumentParser()
+arg_parser.add_argument('-v', '--version', action='version', version=VERSION)
+arg_parser.add_argument('-o', '--out', type=str, default='ad_list.al', help='output file')
+arg_parser.add_argument('-m', '--mode', type=str, choices=['files', 'list'], default='files', help='source mode')
+arg_parser.add_argument('source', type=str, nargs='*', help='list of input files/lists')
+arg_parser.add_argument('-rd', '--remove_duplicates', action='store_const', const=True,
+                        default=False, help='remove duplicates')
+args = arg_parser.parse_args()
 
-FILE_LIST = sys.argv
-FILE_LIST.pop(0)
-FILE_LIST.remove('--out') if '--out' in FILE_LIST else None
-FILE_LIST.remove(OUTPUT) if OUTPUT in FILE_LIST else None
-FILE_LIST.remove('--rd') if '--rd' in FILE_LIST else None
+"""Helper Functions"""
 
-
-# helper functions #
 
 def out(info, err=False, level='info'):
+    """
+    Print function.
+    :param info: string to write
+    :param err: if the string is about an err
+    :param level: prefix header
+    """
+    headers = {'info': 'i', 'err': 'x', 'section': '#'}
     if err:
-        print("\033[91m {}\033[00m".format("[x] " + info))
+        level = 'err'
+        print("\033[91m {}\033[00m".format(
+            ('\t' if level != 'section' else '') + "[" + headers[level] + "] " + info))
     else:
-        print("\033[92m {}\033[00m".format("[i] " + info))
+        print("\033[92m {}\033[00m".format(
+            ('\t' if level != 'section' else '') + "[" + headers[level] + "] " + info))
 
 
-# main
-out(f"Hello! Welcome to Adlist Wizard version {VERSION}\n\n")
+def extract_from_file(host_file):
+    """
+    Extracts hosts from file
+    :param host_file: the file to extract from
+    """
+    try:
+        with open(host_file, 'r') as stream:
+            out(f"File {host_file} found. Starting extraction...")
+            for line in stream:
+                split = line.split(' ') if re.search("^(#|\/\/|\\n)", line) is None else []
+                for word in split:
+                    host_cache.append(word) if re.search("^[^#].*([a-z|A-Z|0-9]\.[a-z|A-Z])", word) is not None \
+                        else None
+        out(f"All host extracted from {host_file}.")
+    except (FileNotFoundError, IsADirectoryError) as e:
+        out(f"The file {host_file} could not be found skipping...", err=True)
 
+
+def write_to_host_file():
+    try:
+        out(f"Writing to {args.out}...", level='section')
+        with open(args.out, 'w') as out_file:
+            out_file.write(f"# Title: Combined Host List\n")
+            out_file.write(f"# Date: {datetime.now()} {time.tzname[0]}\n")
+            out_file.write(f"# Compiler: AdList Wizard\n")
+            out_file.write(f"# Version: {VERSION}\n")
+            out_file.write(f"# Website: https://github.com/AcerP-py/adlist-wizard\n")
+            out_file.write(f"# Host Count: {len(host_cache)}\n")
+            out_file.write(f"# {'=' * 60}\n")
+            out_file.write('\n\n')
+            for host in host_cache:
+                out_file.write(host)
+        out(f"Write complete.")
+    except (FileNotFoundError, IsADirectoryError) as e:
+        out(f"The file {args.out} could not be found. Write canceled.", err=True)
+
+
+"""main"""
+out(f"Hello! Welcome to Adlist Wizard version {VERSION}", level='section')
+
+# variables
 host_cache = []
-total = 0
-unique = 0
-duplicates = 0
+total = None
+unique = None if args.remove_duplicates else None
+duplicates = None if args.remove_duplicates else None
 
 # extract all hosts
-out(f"Starting extraction of hosts...")
-for file in FILE_LIST:
-    try:
-        with open(file, 'r') as stream:
-            out(f"File {file} found. Starting extraction...")
-            for line in stream:
-                # ignore empty lines and lines with comments
-                if line != '\n' and line[0] != '#':
-                    split = line.split(' ')
-                    for word in split:
-                        # filter out non domains
-                        if re.search("^[^#].*([a-z|A-Z|0-9]\.[a-z|A-Z])", word) is not None:
-                            # check for duplicates if filter is on
-                            if FILTER:
-                                if word not in host_cache:
-                                    host_cache.append(word)
-                                    total += 1
-                                    unique += 1
-                                else:
-                                    total += 1
-                                    duplicates += 1
-                            else:
-                                host_cache.append(word)
-                                total += 1
-        out(f"All host extracted from {file}.\n")
-    except (FileNotFoundError, IsADirectoryError) as e:
-        out(f"The file {file} could not be found skipping...\n", err=True)
+out(f"Starting extraction of hosts...", level='section')
+if args.mode == 'files':
+    for file in args.source:
+        extract_from_file(file)
 out(f"Extraction complete.")
-out(f"Total: {total}" + ('\n\n' if not FILTER else ''))
-out(f"Unique: {unique}") if FILTER else None
-out(f"Duplicates: {duplicates}") if FILTER else None
 
-# writing to file
-out(f"Writing to {OUTPUT}...")
-out_file = open(OUTPUT, 'w')
-out_file.write(f"# Title: Combined Host List\n")
-out_file.write(f"# Date: {datetime.now()} {time.tzname[0]}\n")
-out_file.write(f"# Compiler: AdList Wizard\n")
-out_file.write(f"# Version: {VERSION}\n")
-out_file.write(f"# Website: https://github.com/AcerP-py/adlist-wizard\n")
-out_file.write(f"# Host Count: {len(host_cache)}\n")
-out_file.write(f"# {'=' * 50}\n")
-out_file.write('\n\n')
+# remove duplicates
+if args.remove_duplicates:
+    out("Removing duplicates...", level='section')
+    total = len(host_cache)
+    host_cache = list(set(host_cache))
+    host_cache.sort()
+    unique = len(host_cache)
+    duplicates = total - unique
+    out("Duplicates removed.")
+else:
+    total = len(host_cache)
 
-# write hosts
-host_cache.sort()
-for host in host_cache:
-    out_file.write(host)
+# calculate and print stats
+out(f"Stats -", level='section')
+out(f"Total: {total}")
+out(f"Unique: {unique}") if unique is not None else None
+out(f"Duplicates: {duplicates}") if duplicates is not None else None
 
-# close out file
-out_file.close()
-out(f"Write complete.\n\n")
+write_to_host_file()
 
 # goodbye!
-out(f"Goodbye!")
+out(f"Goodbye!", level='section')
